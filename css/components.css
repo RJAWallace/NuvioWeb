@@ -1178,6 +1178,12 @@ button:focus-visible {
   backface-visibility: hidden;
 }
 
+/* The hidden attribute must override display:flex above so the
+   panel actually disappears when the sidebar is collapsed. */
+.modern-sidebar-panel[hidden] {
+  display: none !important;
+}
+
 .modern-sidebar-shell.blur-enabled .modern-sidebar-panel {
   background: linear-gradient(180deg, rgba(74, 79, 89, 0.84), rgba(62, 68, 79, 0.78), rgba(58, 64, 73, 0.8));
   backdrop-filter: blur(22px) saturate(1.15);
@@ -4052,7 +4058,7 @@ button:focus-visible {
   --home-continue-height: 293px;
 }
 
-.home-screen-shell.home-layout-modern.modern-sidebar-enabled {
+.home-screen-shell.modern-sidebar-enabled {
   --home-content-start: calc(var(--modern-sidebar-collapsed-width) + 16px);
 }
 

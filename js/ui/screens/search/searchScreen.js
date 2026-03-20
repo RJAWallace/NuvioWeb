@@ -563,7 +563,11 @@ export const SearchScreen = {
     this.bindSearchInputEvents();
     this.bindActionEvents();
     const input = this.container.querySelector("#searchInput");
-    input?.blur?.();
+    // Only blur the input if the user is not actively searching.
+    // On TV platforms, blurring dismisses the virtual keyboard.
+    if (input && this.mode !== "search") {
+      input.blur();
+    }
     this.restoreScrollState();
     const shouldFocusResults = Boolean(this.pendingAutoFocusResults && this.navModel?.rows?.[0]?.[0]);
     if (this.focusZone === "sidebar") {
@@ -976,14 +980,14 @@ export const SearchScreen = {
     if (!input || input.__boundSearchListeners) return;
     input.__boundSearchListeners = true;
 
-    input.addEventListener("input", (event) => {
+    input.addEventListener("input", async (event) => {
       this.query = String(event.target?.value || "").trimStart();
       if (this.query.length === 0 && this.mode !== "idle") {
         this.mode = "idle";
         this.loadToken = (this.loadToken || 0) + 1;
         this.captureLiveViewState();
         this.renderLoading();
-        this.reloadRows();
+        await this.reloadRows();
       }
     });
 

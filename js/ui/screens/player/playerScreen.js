@@ -2489,7 +2489,8 @@ export const PlayerScreen = {
       ["loadeddata", onPlayable],
       ["canplay", onPlayable],
       ["avplaytrackschanged", onTrackListChanged],
-      ["dashtrackschanged", onTrackListChanged]
+      ["dashtrackschanged", onTrackListChanged],
+      ["hlstrackschanged", onTrackListChanged]
     ];
 
     bindings.forEach(([eventName, handler]) => {
@@ -3124,7 +3125,13 @@ export const PlayerScreen = {
       MediaTrackNext: "next",
       MediaTrackPrevious: "previous",
       Play: "play",
-      Pause: "pause"
+      Pause: "pause",
+      XF86PlayBack: "toggle",
+      XF86AudioPlay: "play",
+      XF86AudioPause: "pause",
+      XF86AudioStop: "stop",
+      XF86AudioRewind: "rewind",
+      XF86AudioForward: "fastForward"
     };
 
     if (keyMap[key]) {
@@ -3135,6 +3142,7 @@ export const PlayerScreen = {
     }
 
     const codeMap = {
+      10252: "toggle",
       179: "toggle",
       415: "play",
       19: "pause",

@@ -188,6 +188,7 @@ function buildTizenIndexHtml() {
   <link rel="stylesheet" href="css/themes.css" />
 </head>
 <body>
+  <script src="$WEBAPIS/webapis/webapis.js"></script>
   <script defer src="main.js"></script>
 </body>
 </html>
@@ -199,7 +200,7 @@ function buildTizenMainJs() {
 
 var tvInput = window.tizen && window.tizen.tvinputdevice;
 if (tvInput && typeof tvInput.registerKey === "function") {
-  ["MediaPlay", "MediaPause", "MediaPlayPause", "MediaFastForward", "MediaRewind"].forEach(function registerKey(keyName) {
+  ["MediaPlay", "MediaPause", "MediaPlayPause", "MediaStop", "MediaFastForward", "MediaRewind", "MediaTrackPrevious", "MediaTrackNext"].forEach(function registerKey(keyName) {
     try {
       tvInput.registerKey(keyName);
     } catch (_) {}

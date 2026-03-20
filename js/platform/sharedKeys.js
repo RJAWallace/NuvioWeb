@@ -63,13 +63,57 @@ export function normalizeKeyEvent(event, backCodes = []) {
   };
 }
 
+const MEDIA_KEY_NAMES = new Set([
+  "MediaPlayPause",
+  "MediaPlay",
+  "MediaPause",
+  "MediaStop",
+  "MediaFastForward",
+  "MediaRewind",
+  "MediaTrackPrevious",
+  "MediaTrackNext",
+  "Play",
+  "Pause",
+  // Tizen XF86 key names for media transport controls
+  "XF86PlayBack",
+  "XF86AudioPlay",
+  "XF86AudioPause",
+  "XF86AudioStop",
+  "XF86AudioRewind",
+  "XF86AudioForward"
+]);
+
+const MEDIA_KEY_CODES = new Set([
+  10252,
+  415,
+  19,
+  413,
+  178,
+  417,
+  412,
+  176,
+  177,
+  179
+]);
+
+export function isMediaKeyEvent(event) {
+  const key = String(event?.key || "");
+  const rawCode = Number(event?.keyCode || 0);
+  return MEDIA_KEY_NAMES.has(key) || MEDIA_KEY_CODES.has(rawCode);
+}
+
 export function isBackEvent(event, backCodes = [], normalizedCode = null) {
   const target = event?.target || null;
   const key = String(event?.key || "");
-  const keyLower = key.toLowerCase();
   const code = String(event?.code || "");
   const rawCode = Number(event?.keyCode || 0);
   const effectiveCode = Number(normalizedCode || rawCode || 0);
+
+  // Never treat media transport keys as back events, even if the
+  // key name contains "back" (e.g. "XF86PlayBack" on Tizen).
+  if (isMediaKeyEvent(event)) {
+    return false;
+  }
 
   if (isEditableTarget(target) && (key === "Backspace" || rawCode === 8 || key === "Delete" || rawCode === 46)) {
     return false;
@@ -91,5 +135,10 @@ export function isBackEvent(event, backCodes = [], normalizedCode = null) {
     return true;
   }
 
-  return keyLower.includes("back");
+  // Match keys that are specifically back-navigation actions.
+  // Use word-boundary check to avoid false positives like "XF86PlayBack".
+  const keyLower = key.toLowerCase();
+  return keyLower === "back"
+    || keyLower === "browserback"
+    || (keyLower.includes("back") && !keyLower.includes("play"));
 }

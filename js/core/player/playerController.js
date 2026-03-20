@@ -1211,16 +1211,21 @@ export const PlayerController = {
   buildHlsConfig(requestHeaders = {}) {
     const forwardedHeaders = this.normalizePlaybackHeaders(requestHeaders);
     const isWebOs = Platform.isWebOS();
+    const isTizen = Platform.isTizen();
+    const isConstrainedPlatform = isWebOs || isTizen;
     return {
-      enableWorker: !isWebOs,
+      enableWorker: !isConstrainedPlatform,
       lowLatencyMode: false,
-      backBufferLength: isWebOs ? 30 : 90,
-      maxBufferLength: isWebOs ? 18 : 30,
-      maxMaxBufferLength: isWebOs ? 24 : 60,
+      backBufferLength: isConstrainedPlatform ? 30 : 90,
+      maxBufferLength: isConstrainedPlatform ? 18 : 30,
+      maxMaxBufferLength: isConstrainedPlatform ? 24 : 60,
       maxBufferHole: 0.5,
       startFragPrefetch: false,
-      fragLoadingTimeOut: isWebOs ? 18000 : 20000,
-      manifestLoadingTimeOut: isWebOs ? 18000 : 20000,
+      // Disable ManagedMediaSource on Tizen — its implementation can
+      // cause audio codec negotiation issues leading to distorted audio.
+      preferManagedMediaSource: isTizen ? false : undefined,
+      fragLoadingTimeOut: isConstrainedPlatform ? 18000 : 20000,
+      manifestLoadingTimeOut: isConstrainedPlatform ? 18000 : 20000,
       xhrSetup: (xhr) => {
         Object.entries(forwardedHeaders).forEach(([headerName, headerValue]) => {
           try {
@@ -1346,7 +1351,19 @@ export const PlayerController = {
           console.warn("HLS playback start rejected", error);
         });
       }
+      this.emitVideoEvent("hlstrackschanged", { playbackEngine: "hls.js" });
     });
+
+    if (Hls.Events.AUDIO_TRACKS_UPDATED) {
+      hls.on(Hls.Events.AUDIO_TRACKS_UPDATED, () => {
+        this.emitVideoEvent("hlstrackschanged", { playbackEngine: "hls.js" });
+      });
+    }
+    if (Hls.Events.AUDIO_TRACK_SWITCHED) {
+      hls.on(Hls.Events.AUDIO_TRACK_SWITCHED, () => {
+        this.emitVideoEvent("hlstrackschanged", { playbackEngine: "hls.js" });
+      });
+    }
 
     this.video.removeAttribute("src");
     hls.attachMedia(this.video);
