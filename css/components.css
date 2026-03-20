@@ -5545,6 +5545,20 @@ button:focus-visible {
   text-align: center;
 }
 
+.settings-cap-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  font-size: 14px;
+  color: var(--text-primary, #fff);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.settings-cap-row:last-child {
+  border-bottom: none;
+}
+
 .settings-inline-icon {
   width: 24px;
   height: 24px;

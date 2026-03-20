@@ -20,6 +20,7 @@ import { WatchedItemsSyncService } from "../../../core/profile/watchedItemsSyncS
 import { WatchProgressSyncService } from "../../../core/profile/watchProgressSyncService.js";
 import { AuthManager } from "../../../core/auth/authManager.js";
 import { Platform } from "../../../platform/index.js";
+import { PlayerController } from "../../../core/player/playerController.js";
 import { I18n } from "../../../i18n/index.js";
 import { PluginManager } from "../../../core/player/pluginManager.js";
 import {
@@ -1690,6 +1691,9 @@ export const SettingsScreen = {
     this.actionMap.set("playback:autoplay", () => {
       PlayerSettingsStore.set({ autoplayNextEpisode: !PlayerSettingsStore.get().autoplayNextEpisode });
     });
+    this.actionMap.set("playback:autoSelectSource", () => {
+      PlayerSettingsStore.set({ autoSelectSource: !PlayerSettingsStore.get().autoSelectSource });
+    });
     this.actionMap.set("playback:quality", () => {
       const options = ["auto", "2160p", "1080p", "720p"];
       this.openOptionDialog({
@@ -1769,6 +1773,12 @@ export const SettingsScreen = {
 
     const streamBody = `
       <div class="settings-stack">
+        ${this.renderToggleRow({
+      focusKey: "playback:autoSelectSource",
+      title: "Auto-select best source",
+      subtitle: "Automatically pick the best available stream based on quality and device support",
+      checked: model.player.autoSelectSource !== false
+    })}
         ${this.renderActionRow({
       focusKey: "playback:quality",
       title: t("settings.playback.preferredQuality.title"),
@@ -1902,6 +1912,47 @@ export const SettingsScreen = {
       title: t("settings.about.supporters.title"),
       subtitle: t("settings.about.supporters.subtitle")
     })}
+        </div>
+      </div>
+      ${this.renderPlaybackCapabilities()}
+    `;
+  },
+
+  renderPlaybackCapabilities() {
+    const caps = typeof PlayerController.getPlaybackCapabilities === "function"
+      ? PlayerController.getPlaybackCapabilities()
+      : null;
+    if (!caps) {
+      return "";
+    }
+
+    const check = (val) => val ? "\u2705" : "\u274C";
+    const rows = [
+      { label: "HDR (HEVC Main 10)", status: caps.mp4HevcMain10 },
+      { label: "HDR (AV1)", status: caps.mp4Av1 },
+      { label: "HDR10+ (likely)", status: caps.hdrLikely },
+      { label: "Dolby Vision", status: caps.dolbyVision },
+      { label: "Dolby Digital (AC-3)", status: caps.audioAc3 },
+      { label: "Dolby Digital+ / Atmos (E-AC-3)", status: caps.audioEac3 },
+      { label: "FLAC", status: caps.audioFlac },
+      { label: "HEVC (H.265)", status: caps.mp4Hevc },
+      { label: "H.264", status: caps.mp4H264 },
+      { label: "VP9", status: caps.webmVp9 },
+      { label: "AV1", status: caps.mp4Av1 },
+      { label: "Samsung AVPlay", status: caps.avplay }
+    ];
+
+    const rowsHtml = rows
+      .map((r) => `<div class="settings-cap-row"><span>${escapeHtml(r.label)}</span><span>${check(r.status)}</span></div>`)
+      .join("");
+
+    return `
+      <div class="settings-group-card settings-group-card-fill" style="margin-top:16px;">
+        <div class="settings-stack">
+          <div class="settings-cap-header" style="padding:12px 16px 4px;font-weight:600;font-size:15px;opacity:0.85;">Device Playback Capabilities</div>
+          <div style="padding:4px 16px 12px;">
+            ${rowsHtml}
+          </div>
         </div>
       </div>
     `;

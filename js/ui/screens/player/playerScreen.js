@@ -753,7 +753,8 @@ export const PlayerScreen = {
     ];
 
     this.streamCandidates = this.normalizeStreamCandidates(Array.isArray(params.streamCandidates) ? params.streamCandidates : []);
-    const initialStreamUrl = params.streamUrl || this.selectBestStreamUrl(this.streamCandidates) || null;
+    const autoSelect = PlayerSettingsStore.get().autoSelectSource !== false;
+    const initialStreamUrl = params.streamUrl || (autoSelect ? this.selectBestStreamUrl(this.streamCandidates) : null) || null;
     if (!this.streamCandidates.length && initialStreamUrl) {
       this.streamCandidates = this.normalizeStreamCandidates([
         {
@@ -783,6 +784,8 @@ export const PlayerScreen = {
     this.selectedAddonSubtitleId = null;
     this.startupSubtitlePreferenceApplied = false;
     this.startupSubtitlePreferenceApplying = false;
+    this.startupAudioPreferenceApplied = false;
+    this.startupAudioPreferenceApplying = false;
     this.builtInSubtitleCount = 0;
     this.externalTrackNodes = [];
     this.externalSubtitleObjectUrls = [];
@@ -906,6 +909,10 @@ export const PlayerScreen = {
       PlayerController.play(this.activePlaybackUrl, this.buildPlaybackContext(sourceCandidate));
       this.loadManifestTrackDataForCurrentStream(this.activePlaybackUrl);
       this.startTrackDiscoveryWindow();
+    } else if (!initialStreamUrl && this.streamCandidates.length > 0 && !this.isExternalFrameMode()) {
+      this.loadingVisible = false;
+      this.updateLoadingVisibility();
+      this.openSourcesPanel();
     }
 
     if (!this.isExternalFrameMode()) {
@@ -3330,6 +3337,8 @@ export const PlayerScreen = {
     this.selectedManifestSubtitleTrackId = null;
     this.startupSubtitlePreferenceApplied = false;
     this.startupSubtitlePreferenceApplying = false;
+    this.startupAudioPreferenceApplied = false;
+    this.startupAudioPreferenceApplying = false;
     this.builtInSubtitleCount = 0;
     this.clearSubtitleCueStyleBindings();
     this.clearMountedExternalSubtitleTracks();
@@ -3606,6 +3615,7 @@ export const PlayerScreen = {
   refreshTrackDialogs() {
     this.syncTrackState();
     this.applyStartupSubtitlePreference();
+    this.applyStartupAudioPreference();
     this.refreshSubtitleCueStyles();
     this.renderControlButtons();
     if (this.subtitleDialogVisible) {
@@ -4500,6 +4510,64 @@ export const PlayerScreen = {
     return applied;
   },
 
+  applyStartupAudioPreference() {
+    if (this.startupAudioPreferenceApplied || this.startupAudioPreferenceApplying) {
+      return false;
+    }
+
+    const settings = PlayerSettingsStore.get();
+    const preferred = String(settings.preferredAudioLanguage || "system").trim().toLowerCase();
+    if (!preferred || preferred === "system" || preferred === "off") {
+      this.startupAudioPreferenceApplied = true;
+      return true;
+    }
+
+    const entries = this.getAudioEntries();
+    if (!entries.length) {
+      const isStillLoading = Boolean(this.subtitleLoading || this.trackDiscoveryInProgress || this.manifestLoading);
+      if (!isStillLoading) {
+        this.startupAudioPreferenceApplied = true;
+      }
+      return false;
+    }
+
+    const normalizedPreferred = normalizeTrackLanguageCode(preferred) || preferred;
+    const selectedEntry = entries.find((e) => e.selected);
+    if (selectedEntry?.languageCode && selectedEntry.languageCode === normalizedPreferred) {
+      this.startupAudioPreferenceApplied = true;
+      return true;
+    }
+
+    const matchIndex = entries.findIndex((e) => e.languageCode === normalizedPreferred);
+    if (matchIndex < 0) {
+      const partialMatch = entries.findIndex((e) => e.languageCode && normalizedPreferred.startsWith(e.languageCode));
+      if (partialMatch >= 0) {
+        this.startupAudioPreferenceApplying = true;
+        try {
+          this.applyAudioTrack(partialMatch);
+        } finally {
+          this.startupAudioPreferenceApplying = false;
+        }
+        this.startupAudioPreferenceApplied = true;
+        return true;
+      }
+      const isStillLoading = Boolean(this.subtitleLoading || this.trackDiscoveryInProgress || this.manifestLoading);
+      if (!isStillLoading) {
+        this.startupAudioPreferenceApplied = true;
+      }
+      return false;
+    }
+
+    this.startupAudioPreferenceApplying = true;
+    try {
+      this.applyAudioTrack(matchIndex);
+    } finally {
+      this.startupAudioPreferenceApplying = false;
+    }
+    this.startupAudioPreferenceApplied = true;
+    return true;
+  },
+
   getSubtitleStyleControls() {
     const style = this.subtitleStyleSettings || {};
     return [
@@ -4989,6 +5057,7 @@ export const PlayerScreen = {
           id: `audio-avplay-${normalizedTrackIndex}`,
           label: display.label,
           secondary: display.secondary,
+          languageCode: normalizeTrackLanguageCode(getTrackLanguageValue(track)),
           selected: normalizedTrackIndex === selectedAvPlayAudioTrack
             || (selectedAvPlayAudioTrack < 0 && normalizedTrackIndex === this.selectedAudioTrackIndex),
           avplayAudioTrackIndex: normalizedTrackIndex
@@ -5009,6 +5078,7 @@ export const PlayerScreen = {
           id: `audio-dash-${index}-${track?.id ?? ""}`,
           label: display.label,
           secondary: display.secondary,
+          languageCode: normalizeTrackLanguageCode(getTrackLanguageValue(track)),
           selected: index === selectedDashAudioTrack || (selectedDashAudioTrack < 0 && index === this.selectedAudioTrackIndex),
           dashAudioTrackIndex: index
         };
@@ -5028,6 +5098,7 @@ export const PlayerScreen = {
           id: `audio-hls-${index}-${track?.id ?? track?.name ?? track?.lang ?? ""}`,
           label: display.label,
           secondary: display.secondary,
+          languageCode: normalizeTrackLanguageCode(getTrackLanguageValue(track)),
           selected: index === selectedHlsAudioTrack || (selectedHlsAudioTrack < 0 && index === this.selectedAudioTrackIndex),
           hlsAudioTrackIndex: index
         };
@@ -5042,6 +5113,7 @@ export const PlayerScreen = {
           id: `audio-track-${index}`,
           label: display.label,
           secondary: display.secondary,
+          languageCode: normalizeTrackLanguageCode(getTrackLanguageValue(track)),
           selected: index === this.selectedAudioTrackIndex,
           audioTrackIndex: index
         };
@@ -5055,6 +5127,7 @@ export const PlayerScreen = {
           id: `audio-manifest-${track.id}`,
           label: display.label,
           secondary: display.secondary,
+          languageCode: normalizeTrackLanguageCode(getTrackLanguageValue(track)),
           selected: this.selectedManifestAudioTrackId === track.id,
           manifestAudioTrackId: track.id
         };
