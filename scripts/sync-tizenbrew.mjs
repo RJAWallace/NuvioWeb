@@ -158,7 +158,6 @@ function buildIndexHtml() {
   <link rel="stylesheet" href="css/themes.css" />
 </head>
 <body>
-  <script src="$WEBAPIS/webapis/webapis.js"></script>
   <script defer src="main.js"></script>
 </body>
 </html>
@@ -168,34 +167,77 @@ function buildIndexHtml() {
 function buildMainJs() {
   return `window.__NUVIO_PLATFORM__ = "tizen";
 
-var tvInput = window.tizen && window.tizen.tvinputdevice;
-if (tvInput && typeof tvInput.registerKey === "function") {
-  ["MediaPlay", "MediaPause", "MediaPlayPause", "MediaStop", "MediaFastForward", "MediaRewind", "MediaTrackPrevious", "MediaTrackNext"].forEach(function registerKey(keyName) {
-    try {
-      tvInput.registerKey(keyName);
-    } catch (_) {}
-  });
-}
-
-function loadScript(src) {
-  var script = document.createElement("script");
-  script.src = src;
-  script.defer = false;
-  document.body.appendChild(script);
-}
-
-window.__NUVIO_TIZEN_BOOTSTRAP_APP__ = function bootstrapApp() {
-  if (window.__NUVIO_TIZEN_APP_BOOTSTRAPPED__) {
+(function loadWebApis() {
+  if (window.webapis && window.webapis.avplay) {
+    console.log("[NuvioTV] webapis.avplay already available");
+    afterWebApis();
     return;
   }
 
-  window.__NUVIO_TIZEN_APP_BOOTSTRAPPED__ = true;
-  loadScript("js/runtime/env.js");
-  loadScript("assets/libs/qrcode-generator.js");
-  loadScript("app.bundle.js");
-};
+  var paths = [
+    "/usr/share/webapis/webapis.js",
+    "file:///usr/share/webapis/webapis.js",
+    "$WEBAPIS/webapis/webapis.js"
+  ];
 
-loadScript("nuvio.env.js");
+  var tried = 0;
+
+  function tryNext() {
+    if (window.webapis && window.webapis.avplay) {
+      console.log("[NuvioTV] webapis.avplay loaded after script injection");
+      afterWebApis();
+      return;
+    }
+    if (tried >= paths.length) {
+      console.warn("[NuvioTV] Could not load webapis.avplay - falling back to HLS.js/DASH.js");
+      afterWebApis();
+      return;
+    }
+    var script = document.createElement("script");
+    script.src = paths[tried];
+    tried++;
+    script.onload = function () {
+      tryNext();
+    };
+    script.onerror = function () {
+      tryNext();
+    };
+    document.head.appendChild(script);
+  }
+
+  tryNext();
+}());
+
+function afterWebApis() {
+  var tvInput = window.tizen && window.tizen.tvinputdevice;
+  if (tvInput && typeof tvInput.registerKey === "function") {
+    ["MediaPlay", "MediaPause", "MediaPlayPause", "MediaStop", "MediaFastForward", "MediaRewind", "MediaTrackPrevious", "MediaTrackNext"].forEach(function registerKey(keyName) {
+      try {
+        tvInput.registerKey(keyName);
+      } catch (_) {}
+    });
+  }
+
+  function loadScript(src) {
+    var script = document.createElement("script");
+    script.src = src;
+    script.defer = false;
+    document.body.appendChild(script);
+  }
+
+  window.__NUVIO_TIZEN_BOOTSTRAP_APP__ = function bootstrapApp() {
+    if (window.__NUVIO_TIZEN_APP_BOOTSTRAPPED__) {
+      return;
+    }
+
+    window.__NUVIO_TIZEN_APP_BOOTSTRAPPED__ = true;
+    loadScript("js/runtime/env.js");
+    loadScript("assets/libs/qrcode-generator.js");
+    loadScript("app.bundle.js");
+  };
+
+  loadScript("nuvio.env.js");
+}
 `;
 }
 
