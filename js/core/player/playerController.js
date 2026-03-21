@@ -1047,6 +1047,12 @@ export const PlayerController = {
       if (this.canPlayNatively("application/vnd.apple.mpegurl")) {
         pushCandidate(candidates, "native-hls");
       }
+      // On Tizen without AVPlay, prefer native playback over HLS.js.
+      // Tizen's native <video> handles HLS with hardware audio decoding,
+      // while HLS.js uses MSE which has broken audio codec support on Tizen WebKit.
+      if (Platform.isTizen() && !this.canUseAvPlay()) {
+        pushCandidate(candidates, "native-hls");
+      }
       if (this.canUseHlsJs()) {
         pushCandidate(candidates, "hls.js");
       }
@@ -1062,6 +1068,10 @@ export const PlayerController = {
         pushCandidate(candidates, avplayEngine);
       }
       if (Platform.isWebOS() && this.canPlayNatively("application/dash+xml")) {
+        pushCandidate(candidates, "native-dash");
+      }
+      // On Tizen without AVPlay, prefer native over DASH.js for same reason as HLS.
+      if (Platform.isTizen() && !this.canUseAvPlay()) {
         pushCandidate(candidates, "native-dash");
       }
       if (this.canUseDashJs()) {
